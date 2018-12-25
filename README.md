@@ -1,4 +1,5 @@
-# fb-social-auth
+# vue-firebase-social-auth
+combine with : https://github.com/akaday/node-firebase-admin-verify-id-tokens/
 
 ## Project setup
 ```
