@@ -17,6 +17,10 @@
         <i class="fa fa-fingerprint"></i>
         {{ user.uid }}
       </p>
+      <p>
+        <i class="fa fa-fingerprint"></i>
+        {{ token }}
+      </p>
       <hr>
       <button @click="doLogOut" class="social-button" id="logout">Logout</button>
     </div>
@@ -39,7 +43,7 @@
 <script>
 import firebase from "firebase";
 import axios from "axios";
-const SERVER = 'http://localhost:3000/';
+const SERVER = "http://localhost:3000/";
 
 export default {
   name: "LoginComponent",
@@ -49,16 +53,15 @@ export default {
   data() {
     return {
       user: {},
-      isLogin: false,
+      isLogin: localStorage.token ? true : false,
+      token: localStorage.token
     };
   },
   created() {
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         this.user = user;
-        if (localStorage.token) {
-          this.isLogin = true;
-        }
+        this.isLogin = localStorage.token ? true : false;
       } else {
         this.user = {};
         this.isLogin = false;
@@ -69,9 +72,13 @@ export default {
     socialLogin(provider) {
       const googleProvider = new firebase.auth.GoogleAuthProvider();
       const facebookProvider = new firebase.auth.FacebookAuthProvider();
-      let providerUse = provider == "google" ? googleProvider : facebookProvider;
+      let providerUse =
+        provider == "google" ? googleProvider : facebookProvider;
 
-      firebase.auth().signInWithPopup(providerUse).then(result => {
+      firebase
+        .auth()
+        .signInWithPopup(providerUse)
+        .then(result => {
           this.user = result;
           this.sendToServer(result.user);
         })
@@ -80,28 +87,36 @@ export default {
         });
     },
     sendToServer(user) {
-      axios.post(SERVER, {uid: user.uid}).then(result => {
-        // eslint-disable-next-line
-        console.log(result, result.data.success);
-        if (result.data.success) {
-          localStorage.token = true;
-          this.isLogin = true;
-        } else {
-          // logout firebase
-          this.isLogin = false;
-          alert("Oops. " + 'Your Data not Valid');
-          this.doLogOut();
-        }
-      })
-      .catch((err)=> {
-        alert("Oops. " + err.message);
-        this.doLogOut();
+      user.getIdToken(true).then(idToken => {
+        axios
+          .post(SERVER, { uid: user.uid, name: user.displayName, firebaseToken: idToken })
+          .then(result => {
+            // eslint-disable-next-line
+            console.log(result);
+            if (result.data.success && result.data.jwt != "") {
+              localStorage.token = result.data.jwt;
+              this.token = localStorage.token;
+              this.isLogin = localStorage.token ? true : false;
+            } else {
+              // logout firebase
+              this.isLogin = false;
+              alert("Oops. " + "Your Data not Valid");
+              this.doLogOut();
+            }
+          })
+          .catch(err => {
+            alert("Oops. " + err.message);
+            this.doLogOut();
+          });
       });
     },
     doLogOut() {
-      firebase.auth().signOut().then(()=>{
-        localStorage.token = false;
-      });
+      firebase
+        .auth()
+        .signOut()
+        .then(() => {
+          localStorage.token = false;
+        });
     }
   }
 };
